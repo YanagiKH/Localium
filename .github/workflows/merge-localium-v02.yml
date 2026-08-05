@@ -1,0 +1,71 @@
+name: Merge Localium v0.2 When Green
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+
+jobs:
+  gate:
+    if: github.head_ref == 'chore/import-localium-v02-temporary'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_PR: "14"
+    steps:
+      - name: Wait for required feature workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=("CI" "CodeQL" "Android" "Android Release")
+          for attempt in $(seq 1 80); do
+            head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${TARGET_PR}" --jq '.head.sha')"
+            runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${head_sha}&per_page=100")"
+            pending=0
+            failed=0
+            summary=""
+            for workflow in "${required[@]}"; do
+              row="$(jq -r --arg name "$workflow" '[.workflow_runs[] | select(.name == $name)] | sort_by(.run_number) | last | if . == null then "missing" else [.status, (.conclusion // "pending"), (.html_url // "")] | @tsv end' <<<"$runs")"
+              summary+="$workflow: $row"$'\n'
+              if [[ "$row" == "missing" ]]; then
+                pending=1
+                continue
+              fi
+              status="$(cut -f1 <<<"$row")"
+              conclusion="$(cut -f2 <<<"$row")"
+              if [[ "$status" != "completed" ]]; then
+                pending=1
+              elif [[ "$conclusion" != "success" && "$conclusion" != "skipped" ]]; then
+                failed=1
+              fi
+            done
+            printf '%s' "$summary"
+            if [[ "$failed" -eq 1 ]]; then
+              gh pr comment "$TARGET_PR" --body $'Automated all-green gate stopped because at least one required workflow failed.\n\n```\n'"$summary"$'```'
+              exit 1
+            fi
+            if [[ "$pending" -eq 0 ]]; then
+              printf '%s' "$summary" > /tmp/final-workflows.txt
+              printf '%s' "$head_sha" > /tmp/final-head-sha.txt
+              exit 0
+            fi
+            sleep 30
+          done
+          gh pr comment "$TARGET_PR" --body "Automated all-green gate timed out while waiting for required workflows."
+          exit 1
+
+      - name: Merge verified feature pull request
+        shell: bash
+        run: |
+          set -euo pipefail
+          head_sha="$(cat /tmp/final-head-sha.txt)"
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/pulls/${TARGET_PR}/merge" \
+            -f merge_method=squash \
+            -f sha="$head_sha" \
+            -f commit_title="feat: redesign UI and add Android, media, and modules" \
+            -f commit_message="Validated desktop CI, CodeQL, Android lint/build/emulator smoke tests, and Android release APK generation before merge."
