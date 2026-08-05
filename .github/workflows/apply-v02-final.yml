@@ -1,0 +1,77 @@
+name: Apply Localium 0.2 final fixes
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/apply-v02-final.yml"
+      - "scripts/patch-v02-final.py"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Detect pending patch
+        id: patch
+        shell: bash
+        run: |
+          if [[ -f scripts/patch-v02-final.py ]]; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        if: steps.patch.outputs.pending == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Setup Java
+        if: steps.patch.outputs.pending == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        if: steps.patch.outputs.pending == 'true'
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply patch
+        if: steps.patch.outputs.pending == 'true'
+        run: python scripts/patch-v02-final.py
+
+      - name: Verify patched source
+        if: steps.patch.outputs.pending == 'true'
+        run: |
+          npm install --no-fund
+          npm run verify
+          npm run build:renderer
+          gradle -p android assembleDebug --no-daemon
+
+      - name: Commit patched source
+        if: steps.patch.outputs.pending == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm scripts/patch-v02-final.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/renderer/App.tsx src/main/mods.ts android/app/src/main/java/dev/localium/android/MainActivity.java README.md docs/ANDROID.md scripts/patch-v02-final.py
+          git commit -m "fix: synchronize encrypted visual assets and harden mods"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
