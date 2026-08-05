@@ -19,7 +19,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sha256sum .bootstrap/fix-02-* .bootstrap/fix-06-*
           cat \
             .bootstrap/part-00 \
             .bootstrap/part-01 \
@@ -38,6 +37,15 @@ jobs:
             .bootstrap/part-08 \
             .bootstrap/part-09 \
             | base64 -d > /tmp/localium-v02.tar.xz
+          {
+            wc -c .bootstrap/fix-02-* .bootstrap/fix-06-* /tmp/localium-v02.tar.xz
+            sha256sum .bootstrap/fix-02-* .bootstrap/fix-06-* /tmp/localium-v02.tar.xz
+          } > .bootstrap/diagnostic.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .bootstrap/diagnostic.txt
+          git commit -m "chore: record import hash diagnostics" || true
+          git push origin HEAD:chore/import-localium-v02-temporary
           echo "9050bb39d61466a1d54b2b55245de5f3b9670357c74984d64d454a1bb40b93e1  /tmp/localium-v02.tar.xz" | sha256sum -c -
 
       - name: Import into feature branch
