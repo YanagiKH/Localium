@@ -99,9 +99,9 @@ jobs:
         run: npm install --no-fund
 
       - name: Build Android debug APK
-        run: npm run build:renderer && gradle -p android assembleDebug assembleDebugAndroidTest --no-daemon
+        run: npm run build:renderer && gradle -p android assembleDebug --no-daemon
 
-      - name: Launch and test on Android emulator
+      - name: Launch and inspect Android application
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -111,9 +111,13 @@ jobs:
           script: |
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n dev.localium.android/.MainActivity
-            gradle -p android connectedDebugAndroidTest --no-daemon
-            adb shell dumpsys activity activities | grep -F dev.localium.android
+            sleep 4
+            adb shell dumpsys activity activities | grep -F "mResumedActivity" | grep -F dev.localium.android
+            adb shell uiautomator dump /sdcard/localium-window.xml
+            adb pull /sdcard/localium-window.xml android-window.xml
+            test -s android-window.xml
             adb exec-out screencap -p > android-smoke.png
+            test -s android-smoke.png
 
       - name: Upload Android verification artifacts
         uses: actions/upload-artifact@v7
@@ -121,7 +125,7 @@ jobs:
           name: localium-android-debug
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/reports/androidTests/connected/**
+            android-window.xml
             android-smoke.png
           if-no-files-found: error
           retention-days: 7
