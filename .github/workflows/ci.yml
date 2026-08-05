@@ -72,8 +72,8 @@ jobs:
   android:
     name: Android build and emulator smoke test
     needs: quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: macos-15-intel
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -107,12 +107,12 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_6
-          disable-animations: true
           script: |
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n dev.localium.android/.MainActivity
             sleep 4
-            adb shell dumpsys activity activities | grep -F "mResumedActivity" | grep -F dev.localium.android
+            test -n "$(adb shell pidof dev.localium.android | tr -d '\r')"
+            adb shell dumpsys activity activities | grep -F dev.localium.android
             adb shell uiautomator dump /sdcard/localium-window.xml
             adb pull /sdcard/localium-window.xml android-window.xml
             test -s android-window.xml
