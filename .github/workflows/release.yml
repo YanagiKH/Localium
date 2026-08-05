@@ -8,6 +8,10 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/release.yml"
+      - "android/**"
+      - "src/renderer/**"
+      - "src/shared/**"
+      - "package.json"
   workflow_dispatch:
 
 permissions:
@@ -86,10 +90,50 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  android:
+    name: Build Android APK
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Install dependencies
+        run: npm install --no-fund
+
+      - name: Build Android release APK
+        run: npm run build:renderer && gradle -p android assembleRelease --no-daemon
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: localium-android
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
   publish:
     name: Publish GitHub release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, android]
     runs-on: ubuntu-latest
     steps:
       - name: Download installers
@@ -112,7 +156,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t files < <(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)
-          test "${#files[@]}" -ge 7
+          test "${#files[@]}" -ge 8
           duplicates="$(printf '%s\n' "${files[@]}" | sort | uniq -d)"
           if [[ -n "$duplicates" ]]; then
             echo "Duplicate asset names detected:"
