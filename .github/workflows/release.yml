@@ -91,7 +91,7 @@ jobs:
           retention-days: 14
 
   android:
-    name: Build Android APK
+    name: Build Android APKs
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -119,14 +119,16 @@ jobs:
       - name: Install dependencies
         run: npm install --no-fund
 
-      - name: Build Android release APK
-        run: npm run build:renderer && gradle -p android assembleRelease --no-daemon
+      - name: Build Android APKs
+        run: npm run build:renderer && gradle -p android assembleDebug assembleRelease --no-daemon
 
-      - name: Upload Android APK
+      - name: Upload Android APKs
         uses: actions/upload-artifact@v7
         with:
           name: localium-android
-          path: android/app/build/outputs/apk/release/*.apk
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -156,7 +158,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t files < <(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)
-          test "${#files[@]}" -ge 8
+          test "${#files[@]}" -ge 9
           duplicates="$(printf '%s\n' "${files[@]}" | sort | uniq -d)"
           if [[ -n "$duplicates" ]]; then
             echo "Duplicate asset names detected:"
