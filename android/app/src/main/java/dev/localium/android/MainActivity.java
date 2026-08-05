@@ -100,7 +100,7 @@ public final class MainActivity extends Activity {
     }
 
     private static boolean isBundledAppUrl(Uri uri) {
-        return "file".equals(uri.getScheme()) && uri.toString().startsWith(APP_PREFIX);
+        return APP_URL.equals(uri.toString());
     }
 
     @Override

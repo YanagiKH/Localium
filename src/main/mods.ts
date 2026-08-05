@@ -25,6 +25,8 @@ interface CommandContext {
 
 const COMMAND_PATTERN = /^[a-z0-9][a-z0-9_-]{0,31}$/u;
 const MAX_MOD_FILE_BYTES = 128 * 1024;
+const MAX_MOD_FILES = 128;
+const MAX_TOTAL_COMMANDS = 1_000;
 const MAX_COMMAND_RESPONSE = 2_000;
 
 function isPermission(value: unknown): value is Permission {
@@ -95,6 +97,7 @@ export class ModRegistry {
       .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
       .map((entry) => entry.name)
       .sort();
+    if (files.length > MAX_MOD_FILES) throw new Error(`Mods directory exceeds ${MAX_MOD_FILES} JSON files.`);
     const modules: ModModuleConfig[] = [];
     const commands = new Map<string, { module: ModModuleConfig; command: ModCommandConfig }>();
     for (const fileName of files) {
@@ -105,6 +108,7 @@ export class ModRegistry {
       if (!module.enabled) continue;
       for (const command of module.commands) {
         if (commands.has(command.name)) throw new Error(`Duplicate slash command: /${command.name}.`);
+        if (commands.size >= MAX_TOTAL_COMMANDS) throw new Error(`Enabled mods exceed ${MAX_TOTAL_COMMANDS} slash commands.`);
         commands.set(command.name, { module, command });
       }
       modules.push(module);

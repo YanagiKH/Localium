@@ -36,7 +36,7 @@
 | Mods and slash commands | Owners configure data-only JSON modules in each server `mods/` directory. Commands can require any role permission and are invoked with `/command`. |
 | Android | Android 10+ clients can join and use every client/admin feature but cannot create or host servers. |
 | Administration | Manage pending devices, invitations, members, server appearance, encrypted backgrounds, stickers, audit events, and custom roles. |
-| Custom permissions | Roles can combine `manage_server`, `manage_invites`, `approve_members`, `manage_members`, `manage_roles`, `manage_stickers`, `send_messages`, `send_files`, and `view_audit`. |
+| Custom permissions | Roles can combine `manage_server`, `manage_invites`, `approve_members`, `manage_members`, `manage_roles`, `manage_stickers`, `manage_mods`, `send_messages`, `send_files`, and `view_audit`. |
 | Local key protection | Device private keys and saved room keys are encrypted through Electron `safeStorage`, backed by the operating system's credential protection. |
 | Debugging | Optional JSON-line server logs, an in-app log viewer, deterministic validation commands, and a dedicated [Debugging Manual](docs/DEBUGGING.md). |
 
@@ -171,11 +171,11 @@ npm run package
 npm audit --omit=dev --audit-level=high
 ```
 
-GitHub Actions runs repository linting, TypeScript checks, cryptographic and server integration tests, renderer/main builds, production dependency auditing, cross-platform unpacked packaging, and CodeQL analysis.
+GitHub Actions runs repository linting, TypeScript checks, cryptographic and server integration tests, renderer/main builds, production dependency auditing, cross-platform desktop packaging, Android APK builds, an API 35 emulator launch inspection, and JavaScript/TypeScript plus Android Java CodeQL analysis.
 
 ## Current limitations
 
-- Localium currently uses one shared room key per server. Removing a member blocks future server access but does not erase ciphertext or keys the member already possessed. Automatic versioned room-key rotation and forward-secret sender chains are not implemented in version `0.1.0`.
+- Localium currently uses one shared room key per server. Removing a member blocks future server access but does not erase ciphertext or keys the member already possessed. Automatic versioned room-key rotation and forward-secret sender chains are not implemented in version `0.2.0`.
 - A compromised approved endpoint can read content available to that endpoint.
 - The server observes operational metadata including device identifiers, timestamps, ciphertext sizes, membership, roles, and network addresses.
 - The built-in server is designed for small and medium private groups. It has not been load-tested for very large public communities.

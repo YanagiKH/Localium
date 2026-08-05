@@ -208,7 +208,16 @@ export default function App() {
         return { ...current, members };
       });
       const key = roomKeyRef.current;
-      if (!value.removed && value.avatarAssetId && key) void loadAvatarAsset(client, key, value);
+      if (!value.removed && value.avatarAssetId && key) {
+        void loadAvatarAsset(client, key, value);
+      } else {
+        setAvatarUrls((current) => {
+          if (current[value.deviceId]) URL.revokeObjectURL(current[value.deviceId]);
+          const next = { ...current };
+          delete next[value.deviceId];
+          return next;
+        });
+      }
     });
     client.on('role.changed', (payload) => {
       const value = payload as RoleRecord & { roleId?: string; deleted?: boolean };
@@ -226,10 +235,22 @@ export default function App() {
         return { ...current, stickers: upsert(current.stickers, value) };
       });
       const key = roomKeyRef.current;
-      if (!value.deleted && value.assetId && key) void loadStickerAsset(client, key, value);
+      if (!value.deleted && value.assetId && key) {
+        void loadStickerAsset(client, key, value);
+      } else if (value.deleted && value.stickerId) {
+        setStickerUrls((current) => {
+          if (current[value.stickerId!]) URL.revokeObjectURL(current[value.stickerId!]);
+          const next = { ...current };
+          delete next[value.stickerId!];
+          return next;
+        });
+      }
     });
     client.on('server.changed', (payload) => {
-      setSnapshot((current) => current ? { ...current, settings: payload as AuthenticatedSnapshot['settings'] } : current);
+      const settings = payload as AuthenticatedSnapshot['settings'];
+      setSnapshot((current) => current ? { ...current, settings } : current);
+      const key = roomKeyRef.current;
+      if (key) void loadBackgroundAsset(client, key, settings.backgroundAssetId);
     });
     client.on('mods.changed', () => {
       void client.request<CommandSummary[]>({ type: 'mods.list' }).then((commands) => {
@@ -250,7 +271,8 @@ export default function App() {
     try {
       const encrypted = await client.downloadAsset(sticker.assetId);
       const decrypted = await decryptBytes(key, encrypted, 'sticker-asset');
-      const url = URL.createObjectURL(new Blob([decrypted.buffer.slice(decrypted.byteOffset, decrypted.byteOffset + decrypted.byteLength) as ArrayBuffer], { type: 'image/png' }));
+      const bytes = decrypted.buffer.slice(decrypted.byteOffset, decrypted.byteOffset + decrypted.byteLength) as ArrayBuffer;
+      const url = URL.createObjectURL(new Blob([bytes]));
       setStickerUrls((current) => {
         if (current[sticker.id]) URL.revokeObjectURL(current[sticker.id]);
         return { ...current, [sticker.id]: url };
@@ -265,13 +287,39 @@ export default function App() {
     try {
       const encrypted = await client.downloadAsset(member.avatarAssetId);
       const decrypted = await decryptBytes(key, encrypted, `avatar-asset:${member.deviceId}`);
-      const url = URL.createObjectURL(new Blob([decrypted.buffer.slice(decrypted.byteOffset, decrypted.byteOffset + decrypted.byteLength) as ArrayBuffer], { type: 'image/*' }));
+      const bytes = decrypted.buffer.slice(decrypted.byteOffset, decrypted.byteOffset + decrypted.byteLength) as ArrayBuffer;
+      const url = URL.createObjectURL(new Blob([bytes]));
       setAvatarUrls((current) => {
         if (current[member.deviceId]) URL.revokeObjectURL(current[member.deviceId]);
         return { ...current, [member.deviceId]: url };
       });
     } catch {
       // Fall back to initials if an optional avatar cannot be decrypted.
+    }
+  }
+
+  async function loadBackgroundAsset(client: LocaliumClient, key: string, assetId: string | null): Promise<void> {
+    if (!assetId) {
+      setBackgroundUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return null;
+      });
+      return;
+    }
+    try {
+      const encrypted = await client.downloadAsset(assetId);
+      const decrypted = await decryptBytes(key, encrypted, 'background-asset');
+      const bytes = decrypted.buffer.slice(decrypted.byteOffset, decrypted.byteOffset + decrypted.byteLength) as ArrayBuffer;
+      const url = URL.createObjectURL(new Blob([bytes]));
+      setBackgroundUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return url;
+      });
+    } catch {
+      setBackgroundUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return null;
+      });
     }
   }
 
@@ -282,24 +330,7 @@ export default function App() {
     for (const sticker of nextSnapshot.stickers) {
       if (sticker.assetId) void loadStickerAsset(client, key, sticker);
     }
-    if (nextSnapshot.settings.backgroundAssetId) {
-      try {
-        const encrypted = await client.downloadAsset(nextSnapshot.settings.backgroundAssetId);
-        const decrypted = await decryptBytes(key, encrypted, 'background-asset');
-        const url = URL.createObjectURL(new Blob([decrypted.buffer.slice(decrypted.byteOffset, decrypted.byteOffset + decrypted.byteLength) as ArrayBuffer], { type: 'image/*' }));
-        setBackgroundUrl((current) => {
-          if (current) URL.revokeObjectURL(current);
-          return url;
-        });
-      } catch {
-        setBackgroundUrl(null);
-      }
-    } else {
-      setBackgroundUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return null;
-      });
-    }
+    await loadBackgroundAsset(client, key, nextSnapshot.settings.backgroundAssetId);
   }
 
   async function connect(serverId: string, record: ServerKeyRecord): Promise<void> {
@@ -627,6 +658,7 @@ export default function App() {
       const selected = await window.localium.dialog.openImage();
       if (!selected) return;
       const bytes = bytesFromBase64(selected.dataBase64);
+      if (bytes.length === 0) throw new Error('The selected avatar is empty.');
       if (bytes.length > 5 * 1024 * 1024) throw new Error('Avatar images are limited to 5 MiB.');
       const encrypted = await encryptBytes(roomKey, bytes, `avatar-asset:${snapshot.self.deviceId}`);
       const upload = await client.uploadAsset('avatar', encrypted);
@@ -639,6 +671,27 @@ export default function App() {
       await loadAvatarAsset(client, roomKey, updated);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to update avatar.');
+    }
+  }
+
+  async function clearAvatar(): Promise<void> {
+    const client = clientRef.current;
+    if (!client || !snapshot) return;
+    try {
+      const updated = await client.request<MemberRecord>({ type: 'member.avatar', assetId: null });
+      setSnapshot((current) => current ? {
+        ...current,
+        self: updated,
+        members: current.members.map((member) => member.deviceId === updated.deviceId ? updated : member)
+      } : current);
+      setAvatarUrls((current) => {
+        if (current[updated.deviceId]) URL.revokeObjectURL(current[updated.deviceId]);
+        const next = { ...current };
+        delete next[updated.deviceId];
+        return next;
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to remove avatar.');
     }
   }
 
@@ -663,7 +716,10 @@ export default function App() {
     try {
       const selected = await window.localium.dialog.openImage();
       if (!selected) return;
-      const encrypted = await encryptBytes(roomKey, bytesFromBase64(selected.dataBase64), 'sticker-asset');
+      const bytes = bytesFromBase64(selected.dataBase64);
+      if (bytes.length === 0) throw new Error('The selected sticker is empty.');
+      if (bytes.length > 10 * 1024 * 1024) throw new Error('Sticker images are limited to 10 MiB.');
+      const encrypted = await encryptBytes(roomKey, bytes, 'sticker-asset');
       const upload = await client.uploadAsset('sticker', encrypted);
       const sticker = await client.request<StickerRecord>({ type: 'sticker.create', label, assetId: upload.assetId });
       setSnapshot((current) => current ? { ...current, stickers: [...current.stickers, sticker] } : current);
@@ -696,7 +752,10 @@ export default function App() {
     try {
       const selected = await window.localium.dialog.openImage();
       if (!selected) return;
-      const encrypted = await encryptBytes(roomKey, bytesFromBase64(selected.dataBase64), 'background-asset');
+      const bytes = bytesFromBase64(selected.dataBase64);
+      if (bytes.length === 0) throw new Error('The selected background is empty.');
+      if (bytes.length > 15 * 1024 * 1024) throw new Error('Background images are limited to 15 MiB.');
+      const encrypted = await encryptBytes(roomKey, bytes, 'background-asset');
       const upload = await client.uploadAsset('background', encrypted);
       const settings = await client.request<AuthenticatedSnapshot['settings']>({ type: 'server.update', backgroundAssetId: upload.assetId });
       setSnapshot((current) => current ? { ...current, settings } : current);
@@ -769,6 +828,18 @@ export default function App() {
     setSnapshot(null);
     setRoomKey(null);
     setMessages([]);
+    setBackgroundUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    setStickerUrls((current) => {
+      for (const url of Object.values(current)) URL.revokeObjectURL(url);
+      return {};
+    });
+    setAvatarUrls((current) => {
+      for (const url of Object.values(current)) URL.revokeObjectURL(url);
+      return {};
+    });
     setAdminOpen(false);
     setScreen('landing');
     setStatus('Disconnected.');
@@ -884,7 +955,7 @@ export default function App() {
                 <div className="member-row" key={member.deviceId}><MemberAvatar member={member} url={avatarUrls[member.deviceId]} /><span><strong>{member.displayName}</strong><small>{member.roleIds.map((roleId) => snapshot.roles.find((role) => role.id === roleId)?.name).filter(Boolean).join(', ')}</small></span></div>
               ))}
             </div>
-            <div className="profile-card"><MemberAvatar member={snapshot.self} url={avatarUrls[snapshot.self.deviceId]} large /><div><strong>{snapshot.self.displayName}</strong><small>Encrypted device profile</small></div><button onClick={() => void uploadAvatar()}>Change avatar</button></div>
+            <div className="profile-card"><MemberAvatar member={snapshot.self} url={avatarUrls[snapshot.self.deviceId]} large /><div><strong>{snapshot.self.displayName}</strong><small>Encrypted device profile</small></div><button onClick={() => void uploadAvatar()}>Change avatar</button>{snapshot.self.avatarAssetId && <button className="text-danger" onClick={() => void clearAvatar()}>Remove</button>}</div>
             <button className="danger-button" onClick={leaveChat}>Disconnect</button>
           </aside>
 

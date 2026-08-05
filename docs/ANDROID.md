@@ -19,3 +19,8 @@ gradle -p android assembleDebug
 ```
 
 CI builds the APK and launches it on an API 35 x86_64 emulator. Android 10 (API 29) or later is required.
+
+
+## Distribution signing
+
+CI produces an installable debug APK for emulator and managed-device testing plus an unsigned release APK artifact. Before public or managed production distribution, sign the release APK with an organization-controlled Android signing key and keep that key stable for future updates. Never commit a private signing key or its password to this repository.
