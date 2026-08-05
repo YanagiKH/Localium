@@ -1,0 +1,91 @@
+{
+  "name": "localium",
+  "version": "0.1.0",
+  "description": "Self-hosted private chat and encrypted file sharing for schools, companies, and organizations.",
+  "type": "commonjs",
+  "main": "dist/main/index.js",
+  "author": "YanagiKH",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "clean": "rimraf dist release coverage",
+    "predev": "rimraf dist",
+    "dev": "concurrently -k -n renderer,main,desktop \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json --watch --preserveWatchOutput\" \"wait-on tcp:5173 file:dist/main/index.js && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "vite build",
+    "build": "npm run clean && npm run build:main && npm run build:renderer",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.main.json --noEmit",
+    "lint": "node scripts/lint.mjs",
+    "test": "vitest run --coverage=false",
+    "test:watch": "vitest",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build",
+    "package": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "libsodium-wrappers-sumo": "0.8.4",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "selfsigned": "5.5.0",
+    "ws": "8.21.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.17.0",
+    "@types/react": "19.1.9",
+    "@types/react-dom": "19.1.7",
+    "@types/ws": "8.18.1",
+    "@vitejs/plugin-react": "4.7.0",
+    "concurrently": "9.2.0",
+    "cross-env": "10.0.0",
+    "electron": "37.10.3",
+    "electron-builder": "26.15.3",
+    "rimraf": "6.0.1",
+    "typescript": "5.9.2",
+    "vite": "7.0.6",
+    "vitest": "3.2.7",
+    "wait-on": "8.0.4"
+  },
+  "build": {
+    "appId": "dev.localium.desktop",
+    "productName": "Localium",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "category": "Network"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10.0.0"
+  },
+  "packageManager": "npm@10.9.2"
+}
