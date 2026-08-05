@@ -29,7 +29,7 @@ async function checkFile(file) {
     ['dynamic eval', /\beval\s*\(/u],
     ['dynamic Function constructor', /\bnew\s+Function\s*\(/u],
     ['committed private key', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/u],
-    ['committed OpenAI-style secret', /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}/u]
+    ['committed secret', /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}/u]
   ];
   for (const [name, pattern] of forbidden) {
     if (pattern.test(text)) failures.push(`${relative}: ${name}`);

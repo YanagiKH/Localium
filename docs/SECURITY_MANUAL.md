@@ -11,7 +11,7 @@ Localium is designed to provide the following properties:
 3. **Explicit membership approval.** An invitation never grants immediate access. An authorized administrator must approve the request and encrypt the room key to the joining device.
 4. **Server identity pinning.** Invitation codes include the server certificate's SHA-256 fingerprint. The desktop client only bypasses the expected self-signed certificate warning when the fingerprint matches a trusted invitation or a server hosted by the same Localium installation.
 5. **Least-privilege administration.** Server permissions are assigned through roles rather than a single unrestricted administrator flag.
-6. **No required third-party content service.** Localium does not send chat content to OpenAI, analytics platforms, hosted databases, push providers, or external moderation services.
+6. **No required third-party content service.** Localium does not send chat content to analytics platforms, hosted databases, push providers, or external moderation services.
 
 Localium does **not** claim absolute security. A compromised endpoint, malicious approved administrator, unsafe backup, publicly exposed port, or vulnerable operating system can defeat the intended protections.
 
