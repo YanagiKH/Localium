@@ -1,11 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.js';
+import { installAndroidBridge } from './mobile-bridge.js';
 
-const root = document.getElementById('root');
-if (!root) throw new Error('Root element is missing.');
+installAndroidBridge();
 
-createRoot(root).render(
+createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
   </StrictMode>

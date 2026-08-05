@@ -25,7 +25,8 @@ const api: LocaliumDesktopApi = {
     readLogs: () => ipcRenderer.invoke('debug:readLogs')
   },
   app: {
-    getVersion: () => ipcRenderer.invoke('app:getVersion')
+    getVersion: () => ipcRenderer.invoke('app:getVersion'),
+    getPlatform: () => Promise.resolve('desktop')
   }
 };
 

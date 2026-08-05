@@ -7,3 +7,7 @@ coverage/
 .DS_Store
 Thumbs.db
 localium-data/
+android/.gradle/
+android/app/build/
+android/app/src/main/assets/web/
+.superdesign/tmp/

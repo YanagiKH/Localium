@@ -1,0 +1,1 @@
+-keepclassmembers class dev.localium.android.MainActivity$AndroidBridge { @android.webkit.JavascriptInterface <methods>; }

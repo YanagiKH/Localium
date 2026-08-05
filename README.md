@@ -11,7 +11,7 @@
   [English](README.md) · [繁體中文](README_ZH.md) · [日本語](README_JP.md)
 </div>
 
-**Localium** is a self-hosted desktop chat system for schools, companies, laboratories, and organizations that need to exchange private messages and files on infrastructure they control. The desktop application can create a local server or join another Localium server with an invitation code. Every new device requires explicit approval from an owner or authorized administrator.
+**Localium** is a self-hosted desktop and Android chat system for schools, companies, laboratories, and organizations that need to exchange private messages and files on infrastructure they control. The desktop application can create a local server or join another Localium server with an invitation code. Every new device requires explicit approval from an owner or authorized administrator.
 
 > [!IMPORTANT]
 > No software can guarantee absolute security. Localium provides a reviewed security-oriented architecture and strong modern cryptographic primitives, but deployment security still depends on endpoint safety, operating-system updates, firewall configuration, trusted administrators, and correct backups. Read the [Security Manual](docs/SECURITY_MANUAL.md) before production use.
@@ -31,7 +31,10 @@
 | End-to-end encryption | XChaCha20-Poly1305 protects messages and file payloads. X25519 sealed boxes deliver the room key. Ed25519 signatures authenticate devices. |
 | Transport protection | Every server generates a local TLS certificate. Invitation codes include its SHA-256 fingerprint, and the desktop client accepts the certificate only after fingerprint pinning. |
 | Private files | Any file type up to 25 MiB can be encrypted locally, uploaded as opaque ciphertext, downloaded, decrypted, and saved through the native file dialog. |
+| Avatars and images | Members can upload an encrypted profile image. Authorized members can upload encrypted room backgrounds and image stickers. |
 | Stickers | Six built-in stickers are available. Authorized members can add and remove encrypted image stickers. |
+| Mods and slash commands | Owners configure data-only JSON modules in each server `mods/` directory. Commands can require any role permission and are invoked with `/command`. |
+| Android | Android 10+ clients can join and use every client/admin feature but cannot create or host servers. |
 | Administration | Manage pending devices, invitations, members, server appearance, encrypted backgrounds, stickers, audit events, and custom roles. |
 | Custom permissions | Roles can combine `manage_server`, `manage_invites`, `approve_members`, `manage_members`, `manage_roles`, `manage_stickers`, `send_messages`, `send_files`, and `view_audit`. |
 | Local key protection | Device private keys and saved room keys are encrypted through Electron `safeStorage`, backed by the operating system's credential protection. |
@@ -73,6 +76,7 @@ Download the installer for the operating system from [GitHub Releases](https://g
 - Windows: NSIS installer or portable executable
 - macOS: DMG or ZIP
 - Linux: AppImage or `tar.gz`
+- Android: APK artifact or APK attached to a tagged release
 
 Release files produced by this repository are not code-signed unless the release workflow is supplied with organization signing credentials. Verify the release checksum and repository origin before distribution.
 
@@ -184,6 +188,8 @@ GitHub Actions runs repository linting, TypeScript checks, cryptographic and ser
 - [Security Manual](docs/SECURITY_MANUAL.md)
 - [Debugging Manual](docs/DEBUGGING.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Android Client](docs/ANDROID.md)
+- [Server Mods](docs/MODS.md)
 - [Contributing](CONTRIBUTING.md)
 - [Vulnerability Reporting](SECURITY.md)
 

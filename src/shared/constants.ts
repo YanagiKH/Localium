@@ -15,6 +15,7 @@ export const PERMISSIONS = [
   'manage_members',
   'manage_roles',
   'manage_stickers',
+  'manage_mods',
   'send_messages',
   'send_files',
   'view_audit'

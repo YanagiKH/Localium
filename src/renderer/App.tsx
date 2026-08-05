@@ -13,6 +13,8 @@ import { decodeInvite } from '../shared/invite.js';
 import { MAX_ASSET_BYTES, PERMISSIONS, type Permission } from '../shared/constants.js';
 import type {
   AuthenticatedSnapshot,
+  CommandExecutionResult,
+  CommandSummary,
   DecryptedChatPayload,
   InviteRecord,
   MemberRecord,
@@ -95,6 +97,14 @@ function memberName(snapshot: AuthenticatedSnapshot, deviceId: string): string {
   return snapshot.members.find((member) => member.deviceId === deviceId)?.displayName ?? 'Former member';
 }
 
+function MemberAvatar({ member, url, large = false }: { member: MemberRecord; url?: string; large?: boolean }) {
+  return (
+    <span className={`avatar${large ? ' avatar-large' : ''}`}>
+      {url ? <img src={url} alt={`${member.displayName} avatar`} /> : member.displayName.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('landing');
   const [vault, setVault] = useState<VaultData | null>(null);
@@ -112,11 +122,19 @@ export default function App() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [stickerUrls, setStickerUrls] = useState<Record<string, string>>({});
+  const [avatarUrls, setAvatarUrls] = useState<Record<string, string>>({});
+  const [platform, setPlatform] = useState<'desktop' | 'android' | 'unknown'>('unknown');
+  const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const clientRef = useRef<LocaliumClient | null>(null);
   const initializedRef = useRef(false);
   const snapshotRef = useRef<AuthenticatedSnapshot | null>(null);
   const roomKeyRef = useRef<string | null>(null);
   const permissions = useMemo(() => memberPermissions(snapshot), [snapshot]);
+  const commandSuggestions = useMemo(() => {
+    if (!snapshot || !messageText.startsWith('/')) return [];
+    const query = messageText.slice(1).split(/\s/u)[0]?.toLowerCase() ?? '';
+    return snapshot.commands.filter((command) => command.name.startsWith(query)).slice(0, 8);
+  }, [snapshot, messageText]);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -133,6 +151,7 @@ export default function App() {
       clientRef.current?.close();
       if (backgroundUrl) URL.revokeObjectURL(backgroundUrl);
       for (const value of Object.values(stickerUrls)) URL.revokeObjectURL(value);
+      for (const value of Object.values(avatarUrls)) URL.revokeObjectURL(value);
     };
     // The cleanup intentionally uses the initial URL sets; runtime replacements are revoked before assignment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,7 +165,9 @@ export default function App() {
         await window.localium.vault.save(loaded);
       }
       setVault(loaded);
-      setHostedServers(await window.localium.server.listHosted());
+      const runtime = await window.localium.app.getPlatform();
+      setPlatform(runtime);
+      setHostedServers(runtime === 'desktop' ? await window.localium.server.listHosted() : []);
       setStatus('Device identity is secured by the operating system.');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to initialize Localium.');
@@ -186,6 +207,8 @@ export default function App() {
         members[index] = value;
         return { ...current, members };
       });
+      const key = roomKeyRef.current;
+      if (!value.removed && value.avatarAssetId && key) void loadAvatarAsset(client, key, value);
     });
     client.on('role.changed', (payload) => {
       const value = payload as RoleRecord & { roleId?: string; deleted?: boolean };
@@ -207,6 +230,11 @@ export default function App() {
     });
     client.on('server.changed', (payload) => {
       setSnapshot((current) => current ? { ...current, settings: payload as AuthenticatedSnapshot['settings'] } : current);
+    });
+    client.on('mods.changed', () => {
+      void client.request<CommandSummary[]>({ type: 'mods.list' }).then((commands) => {
+        setSnapshot((current) => current ? { ...current, commands } : current);
+      }).catch(() => undefined);
     });
     client.on('invite.changed', () => {
       void client.request<Array<Omit<InviteRecord, 'secretHash'>>>({ type: 'invite.list' }).then((invites) => {
@@ -232,7 +260,25 @@ export default function App() {
     }
   }
 
+  async function loadAvatarAsset(client: LocaliumClient, key: string, member: MemberRecord): Promise<void> {
+    if (!member.avatarAssetId) return;
+    try {
+      const encrypted = await client.downloadAsset(member.avatarAssetId);
+      const decrypted = await decryptBytes(key, encrypted, `avatar-asset:${member.deviceId}`);
+      const url = URL.createObjectURL(new Blob([decrypted.buffer.slice(decrypted.byteOffset, decrypted.byteOffset + decrypted.byteLength) as ArrayBuffer], { type: 'image/*' }));
+      setAvatarUrls((current) => {
+        if (current[member.deviceId]) URL.revokeObjectURL(current[member.deviceId]);
+        return { ...current, [member.deviceId]: url };
+      });
+    } catch {
+      // Fall back to initials if an optional avatar cannot be decrypted.
+    }
+  }
+
   async function loadVisualAssets(client: LocaliumClient, key: string, nextSnapshot: AuthenticatedSnapshot): Promise<void> {
+    for (const member of nextSnapshot.members) {
+      if (member.avatarAssetId) void loadAvatarAsset(client, key, member);
+    }
     for (const sticker of nextSnapshot.stickers) {
       if (sticker.assetId) void loadStickerAsset(client, key, sticker);
     }
@@ -387,8 +433,19 @@ export default function App() {
     const text = messageText.trim();
     setMessageText('');
     try {
-      const envelope = await encryptJson<DecryptedChatPayload>(roomKey, { kind: 'text', text }, `message:${messageId}`);
+      let payload: DecryptedChatPayload = { kind: 'text', text };
+      if (text.startsWith('/')) {
+        const [commandToken, ...rest] = text.slice(1).split(/\s+/u);
+        const result = await client.request<CommandExecutionResult>({
+          type: 'command.execute',
+          command: commandToken ?? '',
+          args: rest.join(' ')
+        });
+        payload = { kind: 'system', text: result.text, command: result.command };
+      }
+      const envelope = await encryptJson<DecryptedChatPayload>(roomKey, payload, `message:${messageId}`);
       await client.request({ type: 'message.send', messageId, envelope });
+      setCommandMenuOpen(false);
     } catch (caught) {
       setMessageText(text);
       setError(caught instanceof Error ? caught.message : 'Unable to send message.');
@@ -563,6 +620,40 @@ export default function App() {
     }
   }
 
+  async function uploadAvatar(): Promise<void> {
+    const client = clientRef.current;
+    if (!client || !roomKey || !snapshot) return;
+    try {
+      const selected = await window.localium.dialog.openImage();
+      if (!selected) return;
+      const bytes = bytesFromBase64(selected.dataBase64);
+      if (bytes.length > 5 * 1024 * 1024) throw new Error('Avatar images are limited to 5 MiB.');
+      const encrypted = await encryptBytes(roomKey, bytes, `avatar-asset:${snapshot.self.deviceId}`);
+      const upload = await client.uploadAsset('avatar', encrypted);
+      const updated = await client.request<MemberRecord>({ type: 'member.avatar', assetId: upload.assetId });
+      setSnapshot((current) => current ? {
+        ...current,
+        self: updated,
+        members: current.members.map((member) => member.deviceId === updated.deviceId ? updated : member)
+      } : current);
+      await loadAvatarAsset(client, roomKey, updated);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to update avatar.');
+    }
+  }
+
+  async function reloadMods(): Promise<void> {
+    const client = clientRef.current;
+    if (!client) return;
+    try {
+      const commands = await client.request<CommandSummary[]>({ type: 'mods.reload' });
+      setSnapshot((current) => current ? { ...current, commands } : current);
+      setStatus(`Reloaded ${commands.length} available slash commands.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to reload mods.');
+    }
+  }
+
   async function uploadSticker(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const client = clientRef.current;
@@ -690,7 +781,8 @@ export default function App() {
       <header className="topbar">
         <div className="brand"><span className="brand-mark">L</span><span>Localium</span></div>
         <div className="status-line"><span className="status-dot" />{status}</div>
-        <button className="ghost-button" onClick={() => void showDebugLogs()}>Debug log</button>
+        <span className="runtime-pill">{platform === 'android' ? 'Android client' : 'Desktop'}</span>
+        {platform === 'desktop' && <button className="ghost-button" onClick={() => void showDebugLogs()}>Debug log</button>}
       </header>
 
       {error && <div className="error-banner"><span>{error}</span><button onClick={() => setError('')}>Dismiss</button></div>}
@@ -703,8 +795,8 @@ export default function App() {
               <h1>Messages and files stay on infrastructure you control.</h1>
               <p className="hero-copy">Create a local server, approve every device, and exchange end-to-end encrypted messages, stickers, and files without routing content through a third-party chat provider.</p>
               <div className="hero-actions">
-                <button className="primary-button" onClick={() => setScreen('create')}>Create server</button>
-                <button className="secondary-button" onClick={() => setScreen('join')}>Join with invitation</button>
+                {platform === 'desktop' && <button className="primary-button" onClick={() => setScreen('create')}>Create server</button>}
+                <button className={platform === 'android' ? 'primary-button' : 'secondary-button'} onClick={() => setScreen('join')}>Join with invitation</button>
               </div>
             </div>
             <div className="security-card">
@@ -789,9 +881,10 @@ export default function App() {
             <div className="member-list">
               <h3>Members</h3>
               {snapshot.members.map((member) => (
-                <div className="member-row" key={member.deviceId}><span className="avatar">{member.displayName.slice(0, 1).toUpperCase()}</span><span><strong>{member.displayName}</strong><small>{member.roleIds.map((roleId) => snapshot.roles.find((role) => role.id === roleId)?.name).filter(Boolean).join(', ')}</small></span></div>
+                <div className="member-row" key={member.deviceId}><MemberAvatar member={member} url={avatarUrls[member.deviceId]} /><span><strong>{member.displayName}</strong><small>{member.roleIds.map((roleId) => snapshot.roles.find((role) => role.id === roleId)?.name).filter(Boolean).join(', ')}</small></span></div>
               ))}
             </div>
+            <div className="profile-card"><MemberAvatar member={snapshot.self} url={avatarUrls[snapshot.self.deviceId]} large /><div><strong>{snapshot.self.displayName}</strong><small>Encrypted device profile</small></div><button onClick={() => void uploadAvatar()}>Change avatar</button></div>
             <button className="danger-button" onClick={leaveChat}>Disconnect</button>
           </aside>
 
@@ -803,11 +896,12 @@ export default function App() {
                 const sticker = message.payload?.stickerId ? snapshot.stickers.find((entry) => entry.id === message.payload?.stickerId) : null;
                 return (
                   <article className="message" key={message.id}>
-                    <span className="avatar">{memberName(snapshot, message.senderDeviceId).slice(0, 1).toUpperCase()}</span>
+                    {(() => { const member = snapshot.members.find((entry) => entry.deviceId === message.senderDeviceId); return member ? <MemberAvatar member={member} url={avatarUrls[member.deviceId]} /> : <span className="avatar">?</span>; })()}
                     <div className="message-body">
                       <div className="message-meta"><strong>{memberName(snapshot, message.senderDeviceId)}</strong><time>{formatDate(message.createdAt)}</time></div>
                       {message.failed && <div className="decrypt-failed">Unable to decrypt this record.</div>}
                       {message.payload?.kind === 'text' && <p>{message.payload.text}</p>}
+                      {message.payload?.kind === 'system' && <div className="command-result"><strong>/{message.payload.command ?? 'command'}</strong><p>{message.payload.text}</p></div>}
                       {message.payload?.kind === 'file' && (
                         <button className="file-card" onClick={() => void downloadFile(message)}>
                           <span>📄</span><span><strong>{message.payload.fileName}</strong><small>{formatBytes(message.payload.byteLength)} · decrypt on download</small></span><span>Download</span>
@@ -831,9 +925,11 @@ export default function App() {
                 </button>
               ))}
             </div>
+            {(commandMenuOpen || messageText.startsWith('/')) && commandSuggestions.length > 0 && <div className="command-palette">{commandSuggestions.map((command) => <button key={`${command.moduleId}:${command.name}`} onClick={() => { setMessageText(`/${command.name} `); setCommandMenuOpen(false); }}><strong>/{command.name}</strong><span>{command.description}</span>{command.permission && <small>{command.permission.replaceAll('_', ' ')}</small>}</button>)}</div>}
             <form className="composer" onSubmit={(event: FormEvent<HTMLFormElement>) => void sendText(event)}>
               <button type="button" title="Send encrypted file" onClick={() => void sendFile()}>＋</button>
-              <input value={messageText} onChange={(event: ChangeEvent<HTMLInputElement>) => setMessageText(event.target.value)} maxLength={4000} placeholder={`Message # General`} />
+              <button type="button" title="Slash commands" onClick={() => { setMessageText((value) => value.startsWith('/') ? value : '/'); setCommandMenuOpen(true); }}>/</button>
+              <input value={messageText} onChange={(event: ChangeEvent<HTMLInputElement>) => { setMessageText(event.target.value); setCommandMenuOpen(event.target.value.startsWith('/')); }} maxLength={4000} placeholder={`Message # General or type / for commands`} />
               <button type="submit" className="send-button">Send</button>
             </form>
           </section>
@@ -895,6 +991,15 @@ export default function App() {
                   <h3>Custom sticker</h3>
                   <form className="compact-form inline" onSubmit={(event: FormEvent<HTMLFormElement>) => void uploadSticker(event)}><input name="stickerLabel" required placeholder="Sticker label" /><button type="submit">Choose image</button></form>
                   <div className="mini-list">{snapshot.stickers.filter((sticker) => !sticker.builtInEmoji).map((sticker) => <div key={sticker.id}><span>{sticker.label}</span><button className="text-danger" onClick={() => void deleteSticker(sticker.id)}>Delete</button></div>)}</div>
+                </section>
+              )}
+
+              {permissions.has('manage_mods') && (
+                <section className="admin-section">
+                  <h3>Server mods</h3>
+                  <p className="muted">Edit JSON modules in the hosted server's <code>mods</code> directory, then reload. Modules are declarative and cannot execute JavaScript.</p>
+                  <button onClick={() => void reloadMods()}>Reload mods</button>
+                  <div className="mini-list">{snapshot.commands.map((command) => <div key={`${command.moduleId}:${command.name}`}><span>/{command.name}</span><small>{command.moduleId}{command.permission ? ` · ${command.permission}` : ''}</small></div>)}</div>
                 </section>
               )}
 

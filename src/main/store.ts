@@ -68,6 +68,7 @@ function buildInitialState(input: BootstrapServerInput): PersistedServerState {
   const timestamp = now();
   const owner: MemberRecord = {
     ...input.owner,
+    avatarAssetId: input.owner.avatarAssetId ?? null,
     roleIds: ['owner'],
     approvedAt: timestamp,
     lastSeenAt: timestamp,
@@ -118,6 +119,11 @@ export class ServerStore {
       const raw = await readFile(statePath, 'utf8');
       state = JSON.parse(raw) as PersistedServerState;
       if (state.schemaVersion !== 1) throw new Error('Unsupported server state schema.');
+      for (const member of Object.values(state.members)) member.avatarAssetId ??= null;
+      for (const roleId of ['owner', 'administrator']) {
+        const role = state.roles[roleId];
+        if (role) role.permissions = [...new Set([...role.permissions, ...PERMISSIONS])];
+      }
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== 'ENOENT') throw error;

@@ -22,6 +22,7 @@ import type {
   AssetRecord,
   AuthenticatedSnapshot,
   ClientMessage,
+  CommandExecutionResult,
   EncryptedEnvelope,
   InviteRecord,
   MemberRecord,
@@ -33,6 +34,7 @@ import type {
 import type { LocaliumServerInfo } from '../shared/desktop-api.js';
 import { ServerStore, type BootstrapServerInput } from './store.js';
 import { constantTimeSecretEqual, hashSecret, loadOrCreateTlsMaterial } from './security.js';
+import { ModRegistry } from './mods.js';
 
 const displayNameSchema = z.string().trim().min(1).max(64);
 const serverNameSchema = z.string().trim().min(1).max(80);
@@ -201,6 +203,7 @@ export class LocaliumServer {
   private sessions = new Map<string, SessionRecord>();
   private sockets = new Set<SocketContext>();
   private infoValue: LocaliumServerInfo | null = null;
+  private mods: ModRegistry | null = null;
 
   constructor(config: LocaliumServerConfig) {
     this.config = config;
@@ -214,6 +217,7 @@ export class LocaliumServer {
   async start(): Promise<LocaliumServerInfo> {
     if (this.httpsServer) return this.info;
     this.store = await ServerStore.openOrCreate(this.config.dataDir, this.config.bootstrap);
+    this.mods = await ModRegistry.open(path.join(this.config.dataDir, 'mods'));
     const tls = await loadOrCreateTlsMaterial(this.config.dataDir);
 
     this.httpsServer = createServer({ key: tls.key, cert: tls.cert }, (request, response) => {
@@ -498,6 +502,14 @@ export class LocaliumServer {
         return this.deleteSticker(deviceId, message.stickerId);
       case 'server.update':
         return this.updateServer(deviceId, message.name, message.backgroundAssetId);
+      case 'member.avatar':
+        return this.updateAvatar(deviceId, message.assetId);
+      case 'command.execute':
+        return this.executeCommand(deviceId, message.command, message.args);
+      case 'mods.list':
+        return this.listCommands(deviceId);
+      case 'mods.reload':
+        return this.reloadMods(deviceId);
       case 'audit.list':
         return this.listAudit(deviceId);
       case 'auth':
@@ -592,6 +604,7 @@ export class LocaliumServer {
       const approved: MemberRecord = {
         deviceId: pending.deviceId,
         displayName: pending.displayName,
+        avatarAssetId: null,
         signPublicKey: pending.signPublicKey,
         boxPublicKey: pending.boxPublicKey,
         roleIds: validRoleIds,
@@ -840,6 +853,48 @@ export class LocaliumServer {
     return settings;
   }
 
+  private async updateAvatar(deviceId: string, assetId: string | null): Promise<MemberRecord> {
+    if (assetId !== null) idSchema.parse(assetId);
+    const updated = await this.store.transaction((draft) => {
+      const member = getMemberOrThrow(draft, deviceId);
+      if (assetId !== null) {
+        const asset = draft.assets[assetId];
+        if (!asset || asset.kind !== 'avatar' || asset.ownerDeviceId !== deviceId) throw new Error('Avatar asset does not exist.');
+      }
+      member.avatarAssetId = assetId;
+      draft.audit.push({
+        id: randomUUID(), actorDeviceId: deviceId, action: 'member.avatar.updated', targetId: deviceId, createdAt: now(), detail: { cleared: assetId === null }
+      });
+      return structuredClone(member);
+    });
+    this.broadcast('member.changed', updated);
+    return updated;
+  }
+
+  private listCommands(deviceId: string): unknown[] {
+    const state = this.store.snapshot();
+    const member = getMemberOrThrow(state, deviceId);
+    return this.mods?.list(rolePermissions(state, member)) ?? [];
+  }
+
+  private async reloadMods(deviceId: string): Promise<unknown[]> {
+    this.requirePermission(deviceId, 'manage_mods');
+    if (!this.mods) throw new Error('Mod registry is not available.');
+    await this.mods.reload();
+    await this.store.appendAudit(deviceId, 'mods.reloaded', null, {});
+    this.broadcast('mods.changed', null);
+    return this.listCommands(deviceId);
+  }
+
+  private async executeCommand(deviceId: string, command: string, args: string): Promise<CommandExecutionResult> {
+    const state = this.store.snapshot();
+    const member = getMemberOrThrow(state, deviceId);
+    if (!this.mods) throw new Error('Mod registry is not available.');
+    const result = this.mods.execute(command, args, { displayName: member.displayName, serverName: state.settings.name }, rolePermissions(state, member));
+    await this.store.appendAudit(deviceId, 'command.executed', result.moduleId, { command: result.command });
+    return result;
+  }
+
   private listAudit(deviceId: string): unknown[] {
     const { state } = this.requirePermission(deviceId, 'view_audit');
     return state.audit.slice(-500).reverse();
@@ -857,7 +912,8 @@ export class LocaliumServer {
       invites: permissions.has('manage_invites') ? Object.values(state.invites).map(publicInvite) : [],
       audit: permissions.has('view_audit') ? state.audit.slice(-500).reverse() : [],
       sessionToken: token,
-      sessionExpiresAt: new Date(expiresAt).toISOString()
+      sessionExpiresAt: new Date(expiresAt).toISOString(),
+      commands: this.mods?.list(permissions) ?? []
     };
   }
 
@@ -908,13 +964,13 @@ export class LocaliumServer {
 
     if (request.method === 'POST' && url.pathname === '/api/assets') {
       const kind = url.searchParams.get('kind');
-      if (kind !== 'attachment' && kind !== 'sticker' && kind !== 'background') {
+      if (kind !== 'attachment' && kind !== 'sticker' && kind !== 'background' && kind !== 'avatar') {
         return responseError(response, 400, 'Invalid asset kind.');
       }
       const state = this.store.snapshot();
       const member = getMemberOrThrow(state, session.deviceId);
-      const permission: Permission = kind === 'attachment' ? 'send_files' : kind === 'sticker' ? 'manage_stickers' : 'manage_server';
-      if (!hasPermission(state, member, permission)) return responseError(response, 403, `Missing permission: ${permission}`);
+      const permission: Permission | null = kind === 'attachment' ? 'send_files' : kind === 'sticker' ? 'manage_stickers' : kind === 'background' ? 'manage_server' : null;
+      if (permission && !hasPermission(state, member, permission)) return responseError(response, 403, `Missing permission: ${permission}`);
       const declaredLength = Number(request.headers['content-length'] ?? 0);
       if (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > MAX_ASSET_BYTES + 128) {
         return responseError(response, 413, 'Encrypted asset is too large or empty.');

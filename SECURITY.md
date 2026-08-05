@@ -4,7 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.1.x | Yes |
+| 0.2.x | Yes |
+| 0.1.x | Security fixes only |
 | Older development snapshots | No |
 
 ## Reporting a vulnerability
@@ -29,4 +30,4 @@ Maintainers will validate the report, assess affected versions, prepare a fix, a
 
 ## Security design
 
-Read [docs/SECURITY_MANUAL.md](docs/SECURITY_MANUAL.md) before deployment. The manual documents the threat model and known limitations, including the absence of automatic versioned room-key rotation and forward-secret sender chains in version `0.1.0`.
+Read [docs/SECURITY_MANUAL.md](docs/SECURITY_MANUAL.md) before deployment. The manual documents the threat model and known limitations, including the absence of automatic versioned room-key rotation and forward-secret sender chains in version `0.2.0`.

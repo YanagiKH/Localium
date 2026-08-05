@@ -245,3 +245,16 @@ npm audit --omit=dev --audit-level=high
 ```
 
 The repository also includes CodeQL analysis and cryptographic/server integration tests. These controls reduce risk but are not a substitute for an independent security audit before high-risk deployment.
+
+
+## Android client controls
+
+Android private device material is encrypted with AES-256-GCM under a non-exportable Android Keystore key. The Android application disables cleartext traffic and accepts a self-signed Localium endpoint only when its SHA-256 certificate fingerprint matches a fingerprint trusted from an invitation. Android clients cannot create or run a Localium server.
+
+The Android build uses a bundled renderer rather than loading application code from a remote website. The JavaScript bridge is exposed only to that bundled interface, and navigation away from the application origin is blocked.
+
+## Server mod controls
+
+Localium mods are declarative JSON, not executable JavaScript, native libraries, or shell commands. Files are size-limited; module ids, command names, templates, and permissions are validated; duplicate commands reject the reload atomically. This design intentionally does not provide arbitrary plugin code execution.
+
+Slash command names and arguments are sent through the pinned TLS channel to the self-hosted server so it can enforce permissions and render the configured response. The response is then end-to-end encrypted by the client before posting. Administrators must document this metadata boundary and must not instruct users to place secrets in command arguments.

@@ -168,7 +168,7 @@ export class LocaliumClient {
     this.snapshot = null;
   }
 
-  async uploadAsset(kind: 'attachment' | 'sticker' | 'background', bytes: Uint8Array): Promise<{ assetId: string; byteLength: number }> {
+  async uploadAsset(kind: 'attachment' | 'sticker' | 'background' | 'avatar', bytes: Uint8Array): Promise<{ assetId: string; byteLength: number }> {
     if (!this.snapshot) throw new Error('Not authenticated.');
     const response = await fetch(`${httpBase(this.endpoint)}/api/assets?kind=${kind}`, {
       method: 'POST',

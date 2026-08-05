@@ -100,3 +100,12 @@ Assets are stored as opaque `<uuid>.bin` ciphertext files. Metadata records cont
 - The main process is trusted for OS vault and certificate decisions.
 - The server is trusted for availability, authorization, and metadata integrity, but should not be trusted with plaintext content.
 - The host operating system remains a critical trust dependency.
+
+
+## Android client process
+
+The Android application is a join-only WebView host for the same compiled React renderer and shared cryptographic code used by desktop clients. A narrow JavaScript bridge provides an Android Keystore-protected vault, certificate-fingerprint trust storage, file selection, and downloads. Server creation and local hosting APIs are unavailable on Android.
+
+## Mod registry
+
+Each hosted server owns a `mods/` directory. Localium parses only bounded JSON configuration and never imports or evaluates code from this directory. Command names, templates, and required Localium permissions are validated before the active registry is replaced. Command names and arguments are visible to the self-hosted server for authorization and template expansion; the returned result is encrypted by the client before it becomes a channel message.

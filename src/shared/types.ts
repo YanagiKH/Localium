@@ -48,6 +48,7 @@ export interface RoleRecord {
 export interface MemberRecord {
   deviceId: string;
   displayName: string;
+  avatarAssetId?: string | null;
   signPublicKey: string;
   boxPublicKey: string;
   roleIds: string[];
@@ -98,7 +99,7 @@ export interface StickerRecord {
 export interface AssetRecord {
   id: string;
   ownerDeviceId: string;
-  kind: 'attachment' | 'sticker' | 'background';
+  kind: 'attachment' | 'sticker' | 'background' | 'avatar';
   byteLength: number;
   createdAt: string;
 }
@@ -117,6 +118,20 @@ export interface ServerSettings {
   backgroundAssetId: string | null;
   maxAssetBytes: number;
   approvalRequired: true;
+}
+
+export interface CommandSummary {
+  name: string;
+  description: string;
+  permission: Permission | null;
+  moduleId: string;
+}
+
+export interface CommandExecutionResult {
+  command: string;
+  text: string;
+  moduleId: string;
+  visibility: 'channel';
 }
 
 export interface PersistedServerState {
@@ -153,6 +168,7 @@ export interface AuthenticatedSnapshot extends PublicServerSnapshot {
   audit: AuditRecord[];
   sessionToken: string;
   sessionExpiresAt: string;
+  commands: CommandSummary[];
 }
 
 export type ClientMessage =
@@ -181,6 +197,10 @@ export type ClientMessage =
   | { type: 'sticker.create'; requestId: string; label: string; assetId: string }
   | { type: 'sticker.delete'; requestId: string; stickerId: string }
   | { type: 'server.update'; requestId: string; name?: string; backgroundAssetId?: string | null }
+  | { type: 'member.avatar'; requestId: string; assetId: string | null }
+  | { type: 'command.execute'; requestId: string; command: string; args: string }
+  | { type: 'mods.list'; requestId: string }
+  | { type: 'mods.reload'; requestId: string }
   | { type: 'audit.list'; requestId: string };
 
 export type ServerMessage =
@@ -202,4 +222,5 @@ export interface DecryptedChatPayload {
   mimeType?: string;
   byteLength?: number;
   stickerId?: string;
+  command?: string;
 }

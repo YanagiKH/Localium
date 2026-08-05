@@ -49,5 +49,6 @@ export interface LocaliumDesktopApi {
   };
   app: {
     getVersion(): Promise<string>;
+    getPlatform(): Promise<'desktop' | 'android'>;
   };
 }

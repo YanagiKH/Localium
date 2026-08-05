@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 - 2026-08-06
+
+### Added
+
+- Refined responsive desktop and Android user interface
+- Encrypted member avatars
+- Declarative JSON server mods and permission-limited slash commands
+- Join-only Android client with Android Keystore vault protection
+- Android APK build, emulator launch smoke test, and release artifact
+
+
 ## 0.1.0 - 2026-08-05
 
 ### Added

@@ -92,3 +92,16 @@ Never overwrite the `tls/` directory unless intentionally replacing the server i
 ## Linux keyring requirement
 
 Localium will not store the client vault when Electron selects the `basic_text` password backend. Install and unlock GNOME Keyring, KWallet, or another supported Secret Service implementation before launching the application. This refusal is intentional and must not be bypassed for production use.
+
+
+## Android client
+
+Android 10 or later can install the APK produced by CI or a tagged release. Android is join-only: create and host operations are not included. Distribute APKs through an organization-controlled channel, verify their SHA-256 checksum, and use Android application signing before broad production distribution.
+
+For a local build:
+
+```bash
+npm install
+npm run build:renderer
+gradle -p android assembleDebug
+```
