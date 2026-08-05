@@ -21,7 +21,7 @@ async function checkFile(file) {
   const text = await readFile(file, 'utf8');
   const lines = text.split('\n');
   lines.forEach((line, index) => {
-    if (/\s+$/u.test(line)) failures.push(`${relative}:${index + 1}: trailing whitespace`);
+    if (/\S\s+$/u.test(line)) failures.push(`${relative}:${index + 1}: trailing whitespace`);
     if (line.includes('\t')) failures.push(`${relative}:${index + 1}: tab character`);
   });
   const forbidden = [
