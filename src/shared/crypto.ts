@@ -15,7 +15,7 @@ export async function sodiumReady(): Promise<void> {
 
 export async function deriveDeviceId(signPublicKey: string): Promise<string> {
   await sodiumReady();
-  return toBase64(sodium.crypto_generichash(18, fromBase64(signPublicKey)));
+  return toBase64(sodium.crypto_generichash(18, fromBase64(signPublicKey), null));
 }
 
 export async function generateIdentity(): Promise<DeviceIdentity> {
@@ -148,7 +148,7 @@ export async function decryptBytes(roomKey: string, bytes: Uint8Array, aadText: 
 
 export async function hashText(text: string): Promise<string> {
   await sodiumReady();
-  return toBase64(sodium.crypto_generichash(32, sodium.from_string(text)));
+  return toBase64(sodium.crypto_generichash(32, sodium.from_string(text), null));
 }
 
 export async function randomToken(bytes = 32): Promise<string> {
