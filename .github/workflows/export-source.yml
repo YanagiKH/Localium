@@ -1,0 +1,24 @@
+name: Export Source Temporary
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Archive source
+        shell: bash
+        run: tar --exclude=.git -czf /tmp/localium-source.tar.gz .
+      - name: Upload source
+        uses: actions/upload-artifact@v7
+        with:
+          name: localium-source
+          path: /tmp/localium-source.tar.gz
+          if-no-files-found: error
+          retention-days: 1
