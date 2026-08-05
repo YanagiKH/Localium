@@ -14,11 +14,21 @@ jobs:
     steps:
       - name: Checkout import branch
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Reconstruct verified archive
+      - name: Build diagnostic archive
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
+          {
+            printf '%s\n' '=== files ==='
+            ls -la .bootstrap
+            printf '%s\n' '=== repair lengths ==='
+            wc -c .bootstrap/fix-02-* .bootstrap/fix-06-*
+            printf '%s\n' '=== repair hashes ==='
+            sha256sum .bootstrap/fix-02-* .bootstrap/fix-06-*
+          } > /tmp/import-diagnostic.txt 2>&1
           cat \
             .bootstrap/part-00 \
             .bootstrap/part-01 \
@@ -36,17 +46,29 @@ jobs:
             .bootstrap/part-07 \
             .bootstrap/part-08 \
             .bootstrap/part-09 \
-            | base64 -d > /tmp/localium-v02.tar.xz
+            | base64 -d > /tmp/localium-v02.tar.xz 2>> /tmp/import-diagnostic.txt
+          status=$?
           {
-            wc -c .bootstrap/fix-02-* .bootstrap/fix-06-* /tmp/localium-v02.tar.xz
-            sha256sum .bootstrap/fix-02-* .bootstrap/fix-06-* /tmp/localium-v02.tar.xz
-          } > .bootstrap/diagnostic.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .bootstrap/diagnostic.txt
-          git commit -m "chore: record import hash diagnostics" || true
-          git push origin HEAD:chore/import-localium-v02-temporary
-          echo "9050bb39d61466a1d54b2b55245de5f3b9670357c74984d64d454a1bb40b93e1  /tmp/localium-v02.tar.xz" | sha256sum -c -
+            printf '%s\n' '=== reconstructed ==='
+            printf 'base64_status=%s\n' "$status"
+            wc -c /tmp/localium-v02.tar.xz
+            sha256sum /tmp/localium-v02.tar.xz
+          } >> /tmp/import-diagnostic.txt 2>&1
+          exit 0
+
+      - name: Upload import diagnostics
+        uses: actions/upload-artifact@v7
+        with:
+          name: import-diagnostics
+          path: |
+            /tmp/import-diagnostic.txt
+            /tmp/localium-v02.tar.xz
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Verify archive
+        shell: bash
+        run: echo "9050bb39d61466a1d54b2b55245de5f3b9670357c74984d64d454a1bb40b93e1  /tmp/localium-v02.tar.xz" | sha256sum -c -
 
       - name: Import into feature branch
         shell: bash
