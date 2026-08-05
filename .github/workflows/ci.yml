@@ -68,3 +68,60 @@ jobs:
           path: release/**
           if-no-files-found: error
           retention-days: 7
+
+  android:
+    name: Android build and emulator smoke test
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Install dependencies
+        run: npm install --no-fund
+
+      - name: Build Android debug APK
+        run: npm run build:renderer && gradle -p android assembleDebug assembleDebugAndroidTest --no-daemon
+
+      - name: Launch and test on Android emulator
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n dev.localium.android/.MainActivity
+            gradle -p android connectedDebugAndroidTest --no-daemon
+            adb shell dumpsys activity activities | grep -F dev.localium.android
+            adb exec-out screencap -p > android-smoke.png
+
+      - name: Upload Android verification artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: localium-android-debug
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/reports/androidTests/connected/**
+            android-smoke.png
+          if-no-files-found: error
+          retention-days: 7
