@@ -19,7 +19,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          wc -c .bootstrap/part-*
+          sha256sum .bootstrap/part-*
           cat .bootstrap/part-* | base64 -d > /tmp/localium-v02.tar.xz
+          sha256sum /tmp/localium-v02.tar.xz
           echo "9050bb39d61466a1d54b2b55245de5f3b9670357c74984d64d454a1bb40b93e1  /tmp/localium-v02.tar.xz" | sha256sum -c -
 
       - name: Import into feature branch
