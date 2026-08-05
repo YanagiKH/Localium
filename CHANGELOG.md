@@ -19,3 +19,4 @@
 - OS-protected client vault through Electron safeStorage
 - Cross-platform packaging workflows
 - CodeQL, production dependency audit, integration tests, and documentation
+- Verified unpacked desktop packaging on Windows, macOS, and Linux before the initial merge
