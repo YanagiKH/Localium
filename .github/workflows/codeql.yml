@@ -15,7 +15,7 @@ permissions:
   packages: read
 
 jobs:
-  analyze:
+  javascript:
     name: JavaScript and TypeScript analysis
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -33,3 +33,45 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: /language:javascript-typescript
+
+  android:
+    name: Android Java analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
+      - name: Install dependencies
+        run: npm install --no-fund
+
+      - name: Build Android application
+        run: npm run build:renderer && gradle -p android assembleDebug --no-daemon
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:java-kotlin
