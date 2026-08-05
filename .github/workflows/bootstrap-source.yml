@@ -35,8 +35,8 @@ jobs:
           cat .bootstrap/part-* | base64 --decode > /tmp/localium.tar.gz
           tar -xzf /tmp/localium.tar.gz
           rm -rf .bootstrap
+          rm -rf .github/workflows
           rm -f .gitkeep
-          rm -f .github/workflows/bootstrap-source.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
