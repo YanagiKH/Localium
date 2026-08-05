@@ -2,16 +2,16 @@
   <img src="docs/images/localium-logo.svg" alt="Localium" width="920">
 </p>
 
-<p align="center">
+<div align="center">
   <a href="https://github.com/YanagiKH/Localium/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YanagiKH/Localium/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/YanagiKH/Localium/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/YanagiKH/Localium/actions/workflows/codeql.yml/badge.svg"></a>
   <a href="https://github.com/YanagiKH/Localium/releases"><img alt="Release" src="https://img.shields.io/github/v/release/YanagiKH/Localium?include_prereleases"></a>
   <img alt="License" src="https://img.shields.io/badge/license-MIT-7aa7ff">
-</p>
+  
+  [English](README.md) · [繁體中文](README_ZH.md) · [日本語](README_JP.md)
+</div>
 
 **Localium** 是提供給學校、公司、實驗室與組織使用的自架桌面聊天室，適合在自行控制的基礎設施上交換私密訊息與文件。桌面程式可直接建立本機伺服器，也可透過邀請碼加入其他 Localium 伺服器。每一台新裝置都必須由伺服器擁有者或具權限的管理員明確批准。
-
-伺服器只保存加密後的訊息與檔案內容。訊息正文、檔名、貼圖選擇與檔案資料會先在使用者裝置上加密，再傳送到伺服器。Localium 不需要 OpenAI API 金鑰、雲端帳號、分析服務或第三方聊天後端。
 
 > [!IMPORTANT]
 > 沒有任何軟體能保證絕對安全。Localium 採用以安全為核心的架構與現代密碼學，但實際安全性仍取決於端點安全、作業系統更新、防火牆設定、可信任的管理員與正確的備份流程。正式部署前請閱讀[安全手冊](docs/SECURITY_MANUAL.md)。
@@ -20,7 +20,6 @@
 
 <p align="center"><img src="docs/images/overview.svg" alt="Localium 伺服器選擇畫面" width="100%"></p>
 <p align="center"><img src="docs/images/chat.svg" alt="Localium 加密聊天室" width="100%"></p>
-<p align="center"><img src="docs/images/administration.svg" alt="Localium 管理介面" width="100%"></p>
 
 ## 功能
 
@@ -187,8 +186,6 @@ GitHub Actions 會執行儲存庫 lint、TypeScript 檢查、密碼學與伺服�
 - [架構文件](docs/ARCHITECTURE.md)
 - [貢獻指南](CONTRIBUTING.md)
 - [漏洞回報](SECURITY.md)
-- [英文 README](README.md)
-- [日文 README](README_JP.md)
 
 ## 授權
 

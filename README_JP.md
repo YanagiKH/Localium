@@ -2,16 +2,16 @@
   <img src="docs/images/localium-logo.svg" alt="Localium" width="920">
 </p>
 
-<p align="center">
+<div align="center">
   <a href="https://github.com/YanagiKH/Localium/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YanagiKH/Localium/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/YanagiKH/Localium/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/YanagiKH/Localium/actions/workflows/codeql.yml/badge.svg"></a>
   <a href="https://github.com/YanagiKH/Localium/releases"><img alt="Release" src="https://img.shields.io/github/v/release/YanagiKH/Localium?include_prereleases"></a>
   <img alt="License" src="https://img.shields.io/badge/license-MIT-7aa7ff">
-</p>
+  
+  [English](README.md) · [繁體中文](README_ZH.md) · [日本語](README_JP.md)
+</div>
 
 **Localium** は、学校、企業、研究室、組織が自分たちで管理するインフラ上で機密メッセージやファイルを交換するためのセルフホスト型デスクトップチャットです。デスクトップアプリからローカルサーバーを作成することも、招待コードで別の Localium サーバーに参加することもできます。新しい端末は、所有者または権限を持つ管理者の明示的な承認が必要です。
-
-サーバーが保存するのは暗号化されたメッセージとファイルです。本文、ファイル名、スタンプ選択、ファイルデータは端末上で暗号化されてから送信されます。Localium は OpenAI API キー、クラウドアカウント、分析サービス、第三者チャット基盤を必要としません。
 
 > [!IMPORTANT]
 > 絶対的な安全を保証できるソフトウェアはありません。Localium は安全性を重視した設計と現代的な暗号技術を採用していますが、実際の安全性は端末、OS 更新、ファイアウォール、信頼できる管理者、バックアップ運用にも依存します。本番利用前に[セキュリティマニュアル](docs/SECURITY_MANUAL.md)を確認してください。
@@ -20,7 +20,6 @@
 
 <p align="center"><img src="docs/images/overview.svg" alt="Localium サーバー選択画面" width="100%"></p>
 <p align="center"><img src="docs/images/chat.svg" alt="Localium 暗号化チャット" width="100%"></p>
-<p align="center"><img src="docs/images/administration.svg" alt="Localium 管理画面" width="100%"></p>
 
 ## 機能
 
@@ -187,8 +186,6 @@ GitHub Actions はリポジトリ lint、TypeScript 検査、暗号・サーバ�
 - [アーキテクチャ](docs/ARCHITECTURE.md)
 - [コントリビューション](CONTRIBUTING.md)
 - [脆弱性報告](SECURITY.md)
-- [英語 README](README.md)
-- [中国語 README](README_ZH.md)
 
 ## ライセンス
 

@@ -2,16 +2,16 @@
   <img src="docs/images/localium-logo.svg" alt="Localium" width="920">
 </p>
 
-<p align="center">
+<div align="center">
   <a href="https://github.com/YanagiKH/Localium/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/YanagiKH/Localium/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/YanagiKH/Localium/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/YanagiKH/Localium/actions/workflows/codeql.yml/badge.svg"></a>
   <a href="https://github.com/YanagiKH/Localium/releases"><img alt="Release" src="https://img.shields.io/github/v/release/YanagiKH/Localium?include_prereleases"></a>
   <img alt="License" src="https://img.shields.io/badge/license-MIT-7aa7ff">
-</p>
+  
+  [English](README.md) · [繁體中文](README_ZH.md) · [日本語](README_JP.md)
+</div>
 
 **Localium** is a self-hosted desktop chat system for schools, companies, laboratories, and organizations that need to exchange private messages and files on infrastructure they control. The desktop application can create a local server or join another Localium server with an invitation code. Every new device requires explicit approval from an owner or authorized administrator.
-
-The server stores encrypted message and file payloads. Message content, file names, sticker selections, and file data are encrypted on the client before transmission. Localium does not require an OpenAI API key, cloud account, analytics service, or third-party chat backend.
 
 > [!IMPORTANT]
 > No software can guarantee absolute security. Localium provides a reviewed security-oriented architecture and strong modern cryptographic primitives, but deployment security still depends on endpoint safety, operating-system updates, firewall configuration, trusted administrators, and correct backups. Read the [Security Manual](docs/SECURITY_MANUAL.md) before production use.
@@ -20,7 +20,6 @@ The server stores encrypted message and file payloads. Message content, file nam
 
 <p align="center"><img src="docs/images/overview.svg" alt="Localium server selection" width="100%"></p>
 <p align="center"><img src="docs/images/chat.svg" alt="Localium encrypted chat" width="100%"></p>
-<p align="center"><img src="docs/images/administration.svg" alt="Localium administration" width="100%"></p>
 
 ## Features
 
@@ -187,8 +186,6 @@ GitHub Actions runs repository linting, TypeScript checks, cryptographic and ser
 - [Architecture](docs/ARCHITECTURE.md)
 - [Contributing](CONTRIBUTING.md)
 - [Vulnerability Reporting](SECURITY.md)
-- [Chinese README](README_ZH.md)
-- [Japanese README](README_JP.md)
 
 ## License
 
