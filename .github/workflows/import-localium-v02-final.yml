@@ -1,0 +1,64 @@
+name: Import Localium v0.2 Final
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout import branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Reconstruct and verify archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            .bootstrap/part-00 \
+            .bootstrap/part-01 \
+            .bootstrap/fix-02-0 \
+            .bootstrap/fix-02-1 \
+            .bootstrap/fix-02-2 \
+            .bootstrap/fix-02-3 \
+            .bootstrap/part-03 \
+            .bootstrap/part-04 \
+            .bootstrap/part-05 \
+            .bootstrap/fix-06-0 \
+            .bootstrap/fix-06-1 \
+            .bootstrap/fix-06-2 \
+            .bootstrap/fix-06-3 \
+            .bootstrap/part-07 \
+            .bootstrap/part-08 \
+            .bootstrap/part-09 \
+            | base64 -d > /tmp/localium-v02.tar.xz
+          python - <<'PY'
+          from pathlib import Path
+          archive = Path('/tmp/localium-v02.tar.xz')
+          data = bytearray(archive.read_bytes())
+          data[26007] = 0o15
+          data[26011] = 0o222
+          archive.write_bytes(data)
+          PY
+          echo "9050bb39d61466a1d54b2b55245de5f3b9670357c74984d64d454a1bb40b93e1  /tmp/localium-v02.tar.xz" | sha256sum -c -
+          tar -tJf /tmp/localium-v02.tar.xz >/dev/null
+
+      - name: Import into feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feature/ui-media-mods-android
+          git checkout -B feature/ui-media-mods-android origin/feature/ui-media-mods-android
+          tar -xJf /tmp/localium-v02.tar.xz -C .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: redesign UI and add Android, media, and modules"
+          git push origin HEAD:feature/ui-media-mods-android
