@@ -73,7 +73,7 @@ jobs:
         run: npm run dist -- --publish never
 
       - name: Upload installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: localium-${{ matrix.name }}
           path: ${{ matrix.asset_glob }}
