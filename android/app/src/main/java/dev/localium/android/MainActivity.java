@@ -35,6 +35,8 @@ import javax.crypto.spec.GCMParameterSpec;
 
 public final class MainActivity extends Activity {
     private static final String KEY_ALIAS = "localium.android.vault";
+    private static final String APP_URL = "file:///android_asset/web/index.html";
+    private static final String APP_PREFIX = "file:///android_asset/web/";
     private static final int FILE_CHOOSER_REQUEST = 9042;
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
@@ -51,9 +53,11 @@ public final class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(false);
+        settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSafeBrowsingEnabled(true);
+        settings.setSupportMultipleWindows(false);
 
         webView.addJavascriptInterface(new AndroidBridge(this), "AndroidNative");
         webView.setWebChromeClient(new WebChromeClient() {
@@ -61,15 +65,28 @@ public final class MainActivity extends Activity {
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
-                Intent intent = params.createIntent();
-                startActivityForResult(intent, FILE_CHOOSER_REQUEST);
-                return true;
+                try {
+                    startActivityForResult(params.createIntent(), FILE_CHOOSER_REQUEST);
+                    return true;
+                } catch (RuntimeException error) {
+                    fileCallback = null;
+                    callback.onReceiveValue(null);
+                    return false;
+                }
             }
         });
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return !"file".equals(request.getUrl().getScheme());
+                return !isBundledAppUrl(request.getUrl());
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if (!isBundledAppUrl(Uri.parse(url))) {
+                    view.stopLoading();
+                    view.loadUrl(APP_URL);
+                }
             }
 
             @Override
@@ -79,7 +96,11 @@ public final class MainActivity extends Activity {
                 else handler.cancel();
             }
         });
-        webView.loadUrl("file:///android_asset/web/index.html");
+        webView.loadUrl(APP_URL);
+    }
+
+    private static boolean isBundledAppUrl(Uri uri) {
+        return "file".equals(uri.getScheme()) && uri.toString().startsWith(APP_PREFIX);
     }
 
     @Override
@@ -88,6 +109,15 @@ public final class MainActivity extends Activity {
         if (requestCode != FILE_CHOOSER_REQUEST || fileCallback == null) return;
         fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
         fileCallback = null;
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (fileCallback != null) fileCallback.onReceiveValue(null);
+        fileCallback = null;
+        webView.removeJavascriptInterface("AndroidNative");
+        webView.destroy();
+        super.onDestroy();
     }
 
     @Override
@@ -102,6 +132,10 @@ public final class MainActivity extends Activity {
 
     private static String normalizeFingerprint(String value) {
         return value.replace(":", "").trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean isValidFingerprint(String value) {
+        return value.matches("^[0-9A-F]{64}$");
     }
 
     private static String certificateFingerprint(SslCertificate certificate) {
@@ -133,6 +167,7 @@ public final class MainActivity extends Activity {
             if (encrypted == null || encrypted.isEmpty()) return "";
             try {
                 byte[] payload = Base64.decode(encrypted, Base64.NO_WRAP);
+                if (payload.length <= 12) return "";
                 byte[] iv = new byte[12];
                 System.arraycopy(payload, 0, iv, 0, iv.length);
                 byte[] ciphertext = new byte[payload.length - iv.length];
@@ -163,8 +198,10 @@ public final class MainActivity extends Activity {
 
         @JavascriptInterface
         public void trustFingerprint(String value) {
+            String normalized = normalizeFingerprint(value);
+            if (!isValidFingerprint(normalized)) throw new IllegalArgumentException("Invalid SHA-256 certificate fingerprint.");
             Set<String> values = new HashSet<>(preferences.getStringSet("fingerprints", new HashSet<>()));
-            values.add(normalizeFingerprint(value));
+            values.add(normalized);
             preferences.edit().putStringSet("fingerprints", values).apply();
         }
 
